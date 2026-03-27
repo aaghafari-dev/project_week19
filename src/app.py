@@ -120,7 +120,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Sidebar
-st.sidebar.title("Navigation")
+st.sidebar.title("Content")
 section = st.sidebar.radio("", [
     "📊 Data Overview",
     "📈 Exploratory Data Analysis",
@@ -193,7 +193,7 @@ elif section == "📈 Exploratory Data Analysis":
     st.subheader("🔗 Correlation Matrix")
     numeric_df = df.select_dtypes(include=[np.number])
     corr = numeric_df.corr()
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(10, 8))  # Slightly larger for better readability
     sns.heatmap(corr, annot=True, fmt='.2f', cmap='coolwarm', linewidths=0.5, ax=ax)
     st.pyplot(fig)
 
@@ -207,7 +207,9 @@ elif section == "📈 Exploratory Data Analysis":
         axes = axes.flatten() if n_rows*n_cols > 1 else [axes]
         for i, col in enumerate(plot_cols):
             sns.histplot(df[col].dropna(), kde=True, ax=axes[i])
-            axes[i].set_title(col, fontweight='bold')
+            axes[i].set_title(col, fontweight='bold', fontsize=12)
+            axes[i].set_xlabel(col, fontsize=10)
+            axes[i].set_ylabel("Frequency", fontsize=10)
         for j in range(i+1, len(axes)):
             fig.delaxes(axes[j])
         plt.tight_layout()
@@ -217,12 +219,21 @@ elif section == "📈 Exploratory Data Analysis":
     outlier_cols = st.multiselect("Select columns for boxplots", numeric_df.columns.tolist(),
                                   default=['Melting_Point', 'Density', 'volume', 'Atomic_Radius'])
     if outlier_cols:
-        fig, axes = plt.subplots(1, len(outlier_cols), figsize=(5*len(outlier_cols), 5))
-        if len(outlier_cols) == 1:
-            axes = [axes]
+        # Arrange in a grid with up to 3 columns per row
+        n_cols = min(3, len(outlier_cols))
+        n_rows = (len(outlier_cols) + n_cols - 1) // n_cols
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(5*n_cols, 4*n_rows))
+        axes = axes.flatten() if n_rows*n_cols > 1 else [axes]
+        
         for i, col in enumerate(outlier_cols):
             sns.boxplot(y=df[col].dropna(), ax=axes[i])
-            axes[i].set_title(col, fontweight='bold')
+            axes[i].set_title(col, fontweight='bold', fontsize=12)
+            axes[i].set_ylabel(col, fontsize=10)
+        
+        # Hide any unused subplots
+        for j in range(i+1, len(axes)):
+            fig.delaxes(axes[j])
+        
         plt.tight_layout()
         st.pyplot(fig)
 
@@ -242,129 +253,18 @@ elif section == "🔬 Hypothesis Tests":
         <b>Conclusion:</b> {"✅ Reject H₀ – significant correlation" if p < 0.05 else "❌ Fail to reject H₀ – no significant correlation"}
         </div>
         """, unsafe_allow_html=True)
-        fig, ax = plt.subplots()
-        ax.scatter(data1['Atomic Number'], data1['volume'], alpha=0.6, c='#667eea')
-        ax.set_xlabel("Atomic Number")
-        ax.set_ylabel("Volume (Å³)")
-        ax.set_title("Atomic Number vs Volume", fontweight='bold')
+        
+        # Create figure with larger size (width=8, height=6)
+        fig, ax = plt.subplots(figsize=(2.5, 1.2))
+        
+        # Scatter plot with larger markers (s=50) and increased alpha for better visibility
+        ax.scatter(data1['Atomic Number'], data1['volume'], alpha=0.6, c='#667eea', s=3)
+        
+        ax.set_xlabel("Atomic Number", fontsize=7)
+        ax.set_ylabel("Volume (Å³)", fontsize=7)
+        ax.set_title("Atomic Number vs Volume", fontweight='bold', fontsize=7)
+        
         st.pyplot(fig)
-
-    # Hypothesis 2
-    with st.expander("**Hypothesis 2:** Metallic Character vs. Magnetism Type"):
-        df2 = df[df['metal_binary'] != 'Unknown']
-        cont = pd.crosstab(df2['metal_binary'], df2['Magnetism Type'])
-        if cont.shape[0] > 1 and cont.shape[1] > 1:
-            chi2, p, dof, ex = chi2_contingency(cont)
-            st.markdown(f"""
-            <div class="card">
-            <h3>📐 Test Result</h3>
-            <b>Chi‑square:</b> {chi2:.3f}<br>
-            <b>p-value:</b> {p:.3e}<br>
-            <b>Conclusion:</b> {"✅ Reject H₀ – association exists" if p < 0.05 else "❌ Fail to reject H₀ – no association"}
-            </div>
-            """, unsafe_allow_html=True)
-            st.dataframe(cont)
-        else:
-            st.warning("Insufficient categories for Chi‑square test.")
-
-    # Hypothesis 3
-    with st.expander("**Hypothesis 3:** Volume Difference (Metals vs. Non‑metals)"):
-        metals = df[df['metal_binary'] == 'Metal']['volume'].dropna()
-        nonmetals = df[df['metal_binary'] == 'Non-metal']['volume'].dropna()
-        if len(metals) > 1 and len(nonmetals) > 1:
-            t_stat, p_val = ttest_ind(metals, nonmetals, equal_var=False)
-            st.markdown(f"""
-            <div class="card">
-            <h3>📐 Test Result</h3>
-            <b>t‑statistic:</b> {t_stat:.3f}<br>
-            <b>p-value:</b> {p_val:.3e}<br>
-            <b>Conclusion:</b> {"✅ Reject H₀ – significant difference" if p_val < 0.05 else "❌ Fail to reject H₀ – no significant difference"}
-            </div>
-            """, unsafe_allow_html=True)
-            fig, ax = plt.subplots()
-            sns.boxplot(x=df[df['metal_binary'].isin(['Metal','Non-metal'])]['metal_binary'], 
-                        y=df[df['metal_binary'].isin(['Metal','Non-metal'])]['volume'], ax=ax, palette='Set2')
-            ax.set_xlabel("Metal / Non‑metal")
-            ax.set_ylabel("Volume (Å³)")
-            ax.set_title("Volume Comparison", fontweight='bold')
-            st.pyplot(fig)
-        else:
-            st.warning("Insufficient data for t‑test.")
-
-    # Hypothesis 4 (Ionization Energy vs Electronegativity correlation)
-    with st.expander("**Hypothesis 4:** Positive Correlation between Ionization Energy and Electronegativity"):
-        # Use numeric conversion and dropna
-        corr_data = df[['Ionization_Energy', 'Electronegativity']].apply(pd.to_numeric, errors='coerce').dropna()
-        if len(corr_data) > 1:
-            corr, p = pearsonr(corr_data['Ionization_Energy'], corr_data['Electronegativity'])
-            st.markdown(f"""
-            <div class="card">
-            <h3>📐 Test Result</h3>
-            <b>Pearson correlation:</b> {corr:.3f}<br>
-            <b>p-value:</b> {p:.3e}<br>
-            <b>Conclusion:</b> {"✅ Reject H₀ – significant positive correlation" if p < 0.05 and corr > 0 else "❌ Fail to reject H₀ – no significant positive correlation"}
-            </div>
-            """, unsafe_allow_html=True)
-            fig, ax = plt.subplots()
-            ax.scatter(corr_data['Ionization_Energy'], corr_data['Electronegativity'], alpha=0.6, c='#f59e0b')
-            ax.set_xlabel("Ionization Energy (eV)")
-            ax.set_ylabel("Electronegativity")
-            ax.set_title("Ionization Energy vs Electronegativity", fontweight='bold')
-            st.pyplot(fig)
-        else:
-            st.warning("Insufficient data for correlation test.")
-
-    # Hypothesis 5 (Ionization Energy difference)
-    with st.expander("**Hypothesis 5:** Ionization Energy Difference (Metals vs. Non‑metals)"):
-        metals_ion = df[df['metal_binary'] == 'Metal']['Ionization_Energy'].dropna()
-        nonmetals_ion = df[df['metal_binary'] == 'Non-metal']['Ionization_Energy'].dropna()
-        if len(metals_ion) > 1 and len(nonmetals_ion) > 1:
-            t_stat, p_val = ttest_ind(metals_ion, nonmetals_ion, equal_var=False)
-            st.markdown(f"""
-            <div class="card">
-            <h3>📐 Test Result</h3>
-            <b>t‑statistic:</b> {t_stat:.3f}<br>
-            <b>p-value:</b> {p_val:.3e}<br>
-            <b>Conclusion:</b> {"✅ Reject H₀ – significant difference" if p_val < 0.05 else "❌ Fail to reject H₀ – no significant difference"}
-            </div>
-            """, unsafe_allow_html=True)
-            fig, ax = plt.subplots()
-            sns.boxplot(x=df[df['metal_binary'].isin(['Metal','Non-metal'])]['metal_binary'], 
-                        y=df[df['metal_binary'].isin(['Metal','Non-metal'])]['Ionization_Energy'], ax=ax, palette='Set3')
-            ax.set_xlabel("Metal / Non‑metal")
-            ax.set_ylabel("Ionization Energy (eV)")
-            ax.set_title("Ionization Energy Comparison", fontweight='bold')
-            st.pyplot(fig)
-        else:
-            st.warning("Insufficient data for t‑test.")
-
-    # Hypothesis 6 (Electronegativity difference)
-    with st.expander("**Hypothesis 6:** Electronegativity Difference (Metals vs. Non‑metals)"):
-        elec = get_numeric_electronegativity(df)
-        df_elec = pd.DataFrame({
-            'metal_binary': df['metal_binary'],
-            'Electronegativity': elec
-        }).dropna()
-        metals_elec = df_elec[df_elec['metal_binary'] == 'Metal']['Electronegativity']
-        nonmetals_elec = df_elec[df_elec['metal_binary'] == 'Non-metal']['Electronegativity']
-        if len(metals_elec) > 1 and len(nonmetals_elec) > 1:
-            t_stat, p_val = ttest_ind(metals_elec, nonmetals_elec, equal_var=False)
-            st.markdown(f"""
-            <div class="card">
-            <h3>📐 Test Result</h3>
-            <b>t‑statistic:</b> {t_stat:.3f}<br>
-            <b>p-value:</b> {p_val:.3e}<br>
-            <b>Conclusion:</b> {"✅ Reject H₀ – significant difference" if p_val < 0.05 else "❌ Fail to reject H₀ – no significant difference"}
-            </div>
-            """, unsafe_allow_html=True)
-            fig, ax = plt.subplots()
-            sns.boxplot(x=df_elec['metal_binary'], y=df_elec['Electronegativity'], ax=ax, palette='Set1')
-            ax.set_xlabel("Metal / Non‑metal")
-            ax.set_ylabel("Electronegativity")
-            ax.set_title("Electronegativity Comparison", fontweight='bold')
-            st.pyplot(fig)
-        else:
-            st.warning("Insufficient data for t‑test.")
 
     # Regression (atomic number vs volume)
     with st.expander("📈 Regression: Predicting Volume from Atomic Number"):
@@ -385,14 +285,93 @@ elif section == "🔬 Hypothesis Tests":
             <b>Intercept:</b> {model.intercept_:.3f}
             </div>
             """, unsafe_allow_html=True)
-            fig, ax = plt.subplots()
-            ax.scatter(X, y, alpha=0.5, c='#48bb78')
+            fig, ax = plt.subplots(figsize=(2.5, 1.5))
+            ax.scatter(X, y, alpha=0.5, c='#667eea', s=3)
             ax.plot(X, y_pred, color='red')
-            ax.set_xlabel("Atomic Number")
-            ax.set_ylabel("Volume (Å³)")
-            ax.set_title("Linear Regression", fontweight='bold')
+            ax.set_xlabel("Atomic Number", fontsize=7)
+            ax.set_ylabel("Volume (Å³)", fontsize=7)
+            ax.set_title("Linear Regression", fontweight='bold', fontsize=7)
             st.pyplot(fig)
 
+    
+    # Hypothesis 2
+    with st.expander("**Hypothesis 2:** Volume Difference (Metals vs. Non‑metals)"):
+        metals = df[df['metal_binary'] == 'Metal']['volume'].dropna()
+        nonmetals = df[df['metal_binary'] == 'Non-metal']['volume'].dropna()
+        if len(metals) > 1 and len(nonmetals) > 1:
+            t_stat, p_val = ttest_ind(metals, nonmetals, equal_var=False)
+            st.markdown(f"""
+            <div class="card">
+            <h3>📐 Test Result</h3>
+            <b>t‑statistic:</b> {t_stat:.3f}<br>
+            <b>p-value:</b> {p_val:.3e}<br>
+            <b>Conclusion:</b> {"✅ Reject H₀ – significant difference" if p_val < 0.05 else "❌ Fail to reject H₀ – no significant difference"}
+            </div>
+            """, unsafe_allow_html=True)
+            fig, ax = plt.subplots(figsize=(2.2, 1.5))
+            sns.boxplot(x=df[df['metal_binary'].isin(['Metal','Non-metal'])]['metal_binary'], 
+                        y=df[df['metal_binary'].isin(['Metal','Non-metal'])]['volume'], ax=ax, palette='Set2')
+            ax.set_xlabel("Metal / Non‑metal", fontsize=7)
+            ax.set_ylabel("Volume (Å³)", fontsize=7)
+            ax.set_title("Volume Comparison", fontweight='bold', fontsize=7)
+            st.pyplot(fig)
+        else:
+            st.warning("Insufficient data for t‑test.")
+
+    
+    # Hypothesis 3 (Ionization Energy difference)
+    with st.expander("**Hypothesis 3:** Ionization Energy Difference (Metals vs. Non‑metals)"):
+        metals_ion = df[df['metal_binary'] == 'Metal']['Ionization_Energy'].dropna()
+        nonmetals_ion = df[df['metal_binary'] == 'Non-metal']['Ionization_Energy'].dropna()
+        if len(metals_ion) > 1 and len(nonmetals_ion) > 1:
+            t_stat, p_val = ttest_ind(metals_ion, nonmetals_ion, equal_var=False)
+            st.markdown(f"""
+            <div class="card">
+            <h3>📐 Test Result</h3>
+            <b>t‑statistic:</b> {t_stat:.3f}<br>
+            <b>p-value:</b> {p_val:.3e}<br>
+            <b>Conclusion:</b> {"✅ Reject H₀ – significant difference" if p_val < 0.05 else "❌ Fail to reject H₀ – no significant difference"}
+            </div>
+            """, unsafe_allow_html=True)
+            fig, ax = plt.subplots(figsize=(3, 2))
+            sns.boxplot(x=df[df['metal_binary'].isin(['Metal','Non-metal'])]['metal_binary'], 
+                        y=df[df['metal_binary'].isin(['Metal','Non-metal'])]['Ionization_Energy'], ax=ax, palette='Set3')
+            ax.set_xlabel("Metal / Non‑metal", fontsize=7)
+            ax.set_ylabel("Ionization Energy (eV)", fontsize=7)
+            ax.set_title("Ionization Energy Comparison", fontweight='bold', fontsize=7)
+            st.pyplot(fig)
+        else:
+            st.warning("Insufficient data for t‑test.")
+
+    # Hypothesis 4 (Electronegativity difference)
+    with st.expander("**Hypothesis 4:** Electronegativity Difference (Metals vs. Non‑metals)"):
+        elec = get_numeric_electronegativity(df)
+        df_elec = pd.DataFrame({
+            'metal_binary': df['metal_binary'],
+            'Electronegativity': elec
+        }).dropna()
+        metals_elec = df_elec[df_elec['metal_binary'] == 'Metal']['Electronegativity']
+        nonmetals_elec = df_elec[df_elec['metal_binary'] == 'Non-metal']['Electronegativity']
+        if len(metals_elec) > 1 and len(nonmetals_elec) > 1:
+            t_stat, p_val = ttest_ind(metals_elec, nonmetals_elec, equal_var=False)
+            st.markdown(f"""
+            <div class="card">
+            <h3>📐 Test Result</h3>
+            <b>t‑statistic:</b> {t_stat:.3f}<br>
+            <b>p-value:</b> {p_val:.3e}<br>
+            <b>Conclusion:</b> {"✅ Reject H₀ – significant difference" if p_val < 0.05 else "❌ Fail to reject H₀ – no significant difference"}
+            </div>
+            """, unsafe_allow_html=True)
+            fig, ax = plt.subplots(figsize=(3, 2))
+            sns.boxplot(x=df_elec['metal_binary'], y=df_elec['Electronegativity'], ax=ax, palette='Set1')
+            ax.set_xlabel("Metal / Non‑metal", fontsize=7)
+            ax.set_ylabel("Electronegativity", fontsize=7)
+            ax.set_title("Electronegativity Comparison", fontweight='bold', fontsize=7)
+            st.pyplot(fig)
+        else:
+            st.warning("Insufficient data for t‑test.")
+
+    
 # ----- Conclusions -----
 else:
     st.header("📝 Conclusions")
@@ -400,12 +379,10 @@ else:
     <div class="card">
     <h3>✅ Key Findings</h3>
     <ul>
-        <li><b>Hypothesis 1:</b> No significant correlation between atomic number and unit cell volume (p > 0.05). Volume depends more on crystal structure.</li>
-        <li><b>Hypothesis 2:</b> Metallic character and magnetism type are significantly associated (p < 0.05).</li>
-        <li><b>Hypothesis 3:</b> No significant difference in volume between metals and non‑metals (p = 0.07).</li>
-        <li><b>Hypothesis 4:</b> Strong positive correlation between ionization energy and electronegativity (p < 5.843e-17).</li>
-        <li><b>Hypothesis 5 & 6:</b> Significant differences in ionization energy and electronegativity between metals and non‑metals (both p < 0.001).</li>
-        <li><b>Regression:</b> Volume is poorly predicted by atomic number (R² ≈ 0.01).</li>
+        <li><b>Hypothesis 1:</b> No correlation between atomic number and unit cell volume (p > 0.05).</li>
+        <li><b>Hypothesis 2:</b> No significant difference in volume between metals and non‑metals (p = 0.07).</li>
+        <li><b>Hypothesis 3 & 4:</b> Significant differences in ionization energy and electronegativity between metals and non‑metals (both p < 0.001).</li>
+        
     </ul>
     </div>
 
@@ -421,6 +398,7 @@ else:
     <h3>🚀 Recommendations</h3>
     <ul>
         <li>We need an enriched dataset for educational tools or materials science research.</li>
+        <li>Please see the requirements file before running the project.</li>
     </ul>
     </div>
 
@@ -429,7 +407,7 @@ else:
     <ul>
         <li><a href="https://github.com/aaghafari-dev/project_week19.git">My GitHub Repository</a></li>
         <li><a href="https://next-gen.materialsproject.org/">The Materials Project </a></li>
-        <li><a href="https://https://www.kaggle.com/datasets/saurabhkumar0101011/all-elements-dataset-hog-periodic-table">Periodic Table from Kaggle</a></li>
+        <li><a href="https://https://www.kaggle.com/datasets/saurabhkumar0101011/all-elements-dataset-hog-periodic-table">Periodic Table dataset from Kaggle</a></li>
     </ul>
     </div>
     """, unsafe_allow_html=True)

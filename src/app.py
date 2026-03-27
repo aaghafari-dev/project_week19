@@ -84,7 +84,7 @@ st.markdown("""
 # Load data
 @st.cache_data
 def load_data():
-    df = pd.read_csv('../data/PROCESSED_DATA/cleaned_periodic_table.csv')
+    df = pd.read_csv('https://raw.githubusercontent.com/aaghafari-dev/project_week19/refs/heads/main/data/PROCESSED_DATA/cleaned_periodic_table.csv')
     # Convert numeric columns
     numeric_cols = ['Atomic Number', 'Atomic_Mass', 'Melting_Point', 'Boiling_Point',
                     'Density', 'Atomic_Radius', 'Electronegativity', 'Ionization_Energy', 'volume']
